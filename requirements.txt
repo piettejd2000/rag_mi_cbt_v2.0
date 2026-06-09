@@ -8,10 +8,9 @@
   # Protobuf - compatible version
   protobuf==3.20.3
 
-  # PyTorch dependencies (CPU only for cloud deployment)
-  --find-links https://download.pytorch.org/whl/cpu
-  torch==2.0.1+cpu
-  torchvision==0.15.2+cpu
+  # PyTorch dependencies
+  torch>=2.0.0
+  torchvision>=0.15.0
 
   # Additional dependencies
   numpy<2.0.0
