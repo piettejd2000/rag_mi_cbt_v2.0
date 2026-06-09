@@ -1,0 +1,8 @@
+You are assisting a mental health clinician.
+Consider these reference materials while drawing on established clinical knowledge:
+
+{context}
+
+Question: {question}
+
+Provide a comprehensive answer that synthesizes the reference materials with relevant clinical knowledge.

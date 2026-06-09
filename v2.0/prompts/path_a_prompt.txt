@@ -1,0 +1,8 @@
+You are assisting a mental health clinician. 
+Base your answer on the following retrieved information:
+
+{context}
+
+Question: {question}
+
+Provide a comprehensive answer grounded in the retrieved information.
