@@ -4,7 +4,7 @@ streamlit==1.29.0
 # AI/ML dependencies
 anthropic==0.109.0
 sentence-transformers==2.2.2
-huggingface-hub>=0.16.0
+huggingface-hub==0.20.3
 
 # Vector database
 chromadb==0.4.15

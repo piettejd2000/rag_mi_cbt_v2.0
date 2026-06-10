@@ -29,13 +29,13 @@ try:
     from enhanced_therapy_rag_v2 import create_enhanced_rag_v2
     v2_available = True
     logger.info("✅ v2.0 backend components loaded successfully")
-except ImportError as e:
+except ImportError as import_error:
     v2_available = False
-    logger.warning(f"⚠️ v2.0 components not available: {e}")
+    logger.warning(f"⚠️ v2.0 components not available: {import_error}")
     
     # Define a fallback function so the code doesn't crash
     def create_enhanced_rag_v2(**kwargs):
-        raise ImportError(f"v2.0 system not available: {e}")
+        raise ImportError(f"v2.0 system not available: {import_error}")
 
 # v2.0 imports are already configured above
 
