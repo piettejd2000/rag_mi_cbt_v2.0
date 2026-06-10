@@ -39,7 +39,7 @@ class TherapyRAG:
     """
     
     def __init__(self, 
-                 chroma_path: str = "/Users/johnpiette/healthcare_rl/mi_prototype/trained_models/rag_mi_cbt/chroma_db",
+                 chroma_path: str = None,
                  collection_name: str = "therapy_knowledge",
                  model_name: str = "llama3.2:3b",
                  ollama_host: str = "http://localhost:11434"):
@@ -54,6 +54,13 @@ class TherapyRAG:
         """
         self.model_name = model_name
         self.ollama_host = ollama_host
+        
+        # Set ChromaDB path - use current directory if not specified
+        if chroma_path is None:
+            # Try to create a local chroma_db directory
+            import os
+            chroma_path = os.path.join(os.getcwd(), "chroma_db")
+            os.makedirs(chroma_path, exist_ok=True)
         
         # Initialize embedding model (try alternatives if multilingual fails)
         logger.info("Loading embedding model...")
