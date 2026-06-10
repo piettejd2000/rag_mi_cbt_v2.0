@@ -1,0 +1,26 @@
+# Streamlit Cloud configuration
+# Request maximum resources for the app
+
+[server]
+# Memory limit (default is 1GB for free tier)
+# Note: These settings are requests, not guarantees
+maxUploadSize = 200
+maxMessageSize = 200
+
+[runner]
+# Increase magic commands timeout
+magicEnabled = true
+
+[client]
+# Show errors in detail for debugging
+showErrorDetails = true
+
+# Note: For more resources, you need to:
+# 1. Contact Streamlit Cloud support for resource increase
+# 2. Or upgrade to Streamlit for Teams ($250/month)
+# 3. Or use custom deployment (AWS/GCP/Azure)
+
+# Resource limits by tier:
+# Free Community Cloud: 1 GB RAM, 1 CPU
+# Streamlit for Teams: 8 GB RAM, 2 CPUs (configurable)
+# Custom deployment: Unlimited (your own infrastructure)
