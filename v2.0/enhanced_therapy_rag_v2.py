@@ -386,6 +386,31 @@ Note: Retrieved materials were not directly relevant to this question."""
             'path_distribution': defaultdict(int)
         }
         logger.info("v2.0 metrics reset")
+    
+    def _call_anthropic_api(self, prompt: str, config) -> str:
+        """Call Anthropic API with the given prompt and config."""
+        import anthropic
+        import os
+        
+        # Get API key
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+        
+        # Create client
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        try:
+            message = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=config.max_tokens,
+                temperature=config.temperature,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return message.content[0].text
+        except Exception as e:
+            logger.error(f"Anthropic API error: {e}")
+            raise
 
 
 class CompatibilityWrapper:

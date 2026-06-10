@@ -361,7 +361,7 @@ class SimpleClaudeRAG:
         elif self.system_type == "base_claude" and hasattr(self, 'client'):
             try:
                 message = self.client.messages.create(
-                    model="claude-3-5-sonnet-20240620",
+                    model="claude-3-5-sonnet-20241022",
                     max_tokens=1024,
                     temperature=0.7,
                     messages=[{"role": "user", "content": question}]
