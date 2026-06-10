@@ -299,16 +299,26 @@ Note: Retrieved materials were not directly relevant to this question."""
         result = self.generate_response_v2(query, context, config)
         return result['response']
     
-    def generate_response(self, *args, **kwargs):
+    def generate_response(self, prompt: str, config=None) -> str:
         """
-        Main response generation method.
-        Routes to v2.0 by default, with v1.0 compatibility option.
+        Override parent's generate_response to handle the prompt/config signature.
+        The parent's query() method calls this with (prompt, config).
         """
-        # Check if v1 compatibility is requested
-        if kwargs.pop('v1_compatible', False):
-            return self.generate_response_v1_compatible(*args, **kwargs)
+        # Handle the parent's call signature (prompt, config)
+        # We need to extract the question from the prompt and generate context
+        
+        # Try to extract question from prompt (it's usually at the end after "Question:")
+        if "Question:" in prompt:
+            question = prompt.split("Question:")[-1].split("\n")[0].strip()
+        elif "Pregunta:" in prompt:
+            question = prompt.split("Pregunta:")[-1].split("\n")[0].strip()
         else:
-            return self.generate_response_v2(*args, **kwargs)
+            # Fallback: use the whole prompt as question
+            question = prompt
+        
+        # Use v2.0 adaptive routing but return just the response text for compatibility
+        result = self.generate_response_v2(question, context=None, config=config)
+        return result.get('response', 'Error generating response')
     
     def force_path_for_testing(self, query: str, path: str, context: List[Dict] = None) -> Dict:
         """
@@ -410,7 +420,7 @@ Note: Retrieved materials were not directly relevant to this question."""
         
         try:
             message = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-6",
                 max_tokens=config.max_tokens,
                 temperature=config.temperature,
                 messages=[{"role": "user", "content": prompt}]

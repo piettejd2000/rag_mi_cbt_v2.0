@@ -323,10 +323,15 @@ class SimpleClaudeRAG:
         self.system_type = system_type
         # Get API key from Streamlit secrets or environment
         self.api_key = None
-        if 'ANTHROPIC_API_KEY' in st.secrets:
-            self.api_key = st.secrets['ANTHROPIC_API_KEY']
-        else:
+        try:
+            if 'ANTHROPIC_API_KEY' in st.secrets:
+                self.api_key = st.secrets['ANTHROPIC_API_KEY']
+        except:
+            pass  # No secrets file, that's ok
+        
+        if not self.api_key:
             self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        
         if self.api_key and system_type == "enhanced_v2":
             try:
                 # Initialize v2.0 system without api_key parameter
@@ -334,6 +339,9 @@ class SimpleClaudeRAG:
                 os.environ['ANTHROPIC_API_KEY'] = self.api_key  # Ensure it's available
                 logger.info(f"Attempting to initialize v2.0 system with API key: {self.api_key[:10]}...")
                 self.rag_system = create_enhanced_rag_v2()
+                # Expose collection for knowledge base management
+                if hasattr(self.rag_system, 'collection'):
+                    self.collection = self.rag_system.collection
                 self.available = True
                 logger.info("✅ v2.0 RAG system initialized successfully")
             except Exception as e:
@@ -354,11 +362,14 @@ class SimpleClaudeRAG:
             try:
                 response = self.rag_system.query(question, **kwargs)
                 processing_time = time.time() - start_time
+                # Handle response from therapy_rag which returns 'response' not 'answer'
+                answer_text = response.get('response', response.get('answer', 'No response'))
                 return {
-                    'answer': response['answer'],
+                    'answer': answer_text,
                     'processing_time': processing_time,
                     'system_type': 'Enhanced RAG v2.0',
-                    'context_used': response.get('context_used', []),
+                    'context_chunks_used': response.get('context_chunks_used', 0),
+                    'context_sources': response.get('context_sources', []),
                     'grounding_path': response.get('grounding_path', 'unknown')
                 }
             except Exception as e:
@@ -368,7 +379,7 @@ class SimpleClaudeRAG:
         elif self.system_type == "base_claude" and hasattr(self, 'client'):
             try:
                 message = self.client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-sonnet-4-6",
                     max_tokens=1024,
                     temperature=0.7,
                     messages=[{"role": "user", "content": question}]
@@ -684,9 +695,14 @@ def main():
         st.header(get_text('sidebar_header'))
         
         st.success("☁️ **Cloud Mode Active**")
-        if 'ANTHROPIC_API_KEY' in st.secrets or os.getenv("ANTHROPIC_API_KEY"):
+        try:
+            if 'ANTHROPIC_API_KEY' in st.secrets:
+                st.success("✅ API Key Found (from secrets)")
+        except:
+            pass
+        if os.getenv("ANTHROPIC_API_KEY"):
             st.success("✅ API Key Found: sk-ant-api03-fl...")
-        else:
+        elif not os.getenv("ANTHROPIC_API_KEY"):
             st.error("❌ No API Key Found")
             st.info("Add ANTHROPIC_API_KEY to Streamlit secrets")
 
@@ -752,15 +768,22 @@ def main():
                 # Generate response from Enhanced RAG v2.0
                 if st.session_state.systems_initialized.get('enhanced_v2', False):
                     try:
-                        config = {
-                            'response_style': response_style,
-                            'response_length': response_length,
-                            'temperature': complexity,
-                            'tone': tone,
-                            'max_chunks': context_chunks
+                        # Map UI parameters to RAG system parameters
+                        length_to_tokens = {
+                            'brief': 150,
+                            'standard': 300,
+                            'detailed': 600
                         }
                         
-                        response = st.session_state.enhanced_v2_system.query(question, **config)
+                        # Use only valid parameters for therapy_rag.query()
+                        response = st.session_state.enhanced_v2_system.query(
+                            question,
+                            response_style=response_style,
+                            temperature=complexity,
+                            max_tokens=length_to_tokens.get(response_length, 300),
+                            n_context_chunks=context_chunks,
+                            custom_instructions=f"Tone: {tone}"
+                        )
                         responses.append(('Enhanced RAG v2.0 🎯', response))
                     except Exception as e:
                         st.error(f"Enhanced RAG v2.0 error: {str(e)}")
@@ -790,10 +813,13 @@ def main():
                             """, unsafe_allow_html=True)
                             
                             # Show additional info for RAG systems
-                            if 'context_used' in response and response['context_used']:
-                                with st.expander(f"📚 Context Information ({len(response['context_used'])} {get_text('fragments')})"):
-                                    for i, ctx in enumerate(response['context_used'][:3]):  # Show first 3
-                                        st.write(f"**Fragment {i+1}:** {ctx[:200]}...")
+                            if response.get('context_chunks_used', 0) > 0:
+                                with st.expander(f"📚 Context Information ({response['context_chunks_used']} {get_text('fragments')})"):
+                                    if 'context_sources' in response and response['context_sources']:
+                                        for i, source in enumerate(response['context_sources'][:3]):  # Show first 3
+                                            st.write(f"**Source {i+1}:** {source.get('section', 'Unknown')} (Confidence: {source.get('confidence', 0):.2f})")
+                                    else:
+                                        st.write(f"Used {response['context_chunks_used']} context chunks from knowledge base.")
                             
                             # Show grounding path for v2.0
                             if 'grounding_path' in response and response['grounding_path'] != 'unknown':

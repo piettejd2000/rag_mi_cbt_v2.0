@@ -9,6 +9,12 @@ import json
 import logging
 from typing import List, Dict, Optional, Union
 from pathlib import Path
+
+# CRITICAL: Prevent sentence-transformers from downloading ONNX/OpenVINO models
+# This MUST be set before importing sentence_transformers to save 4.4GB of downloads
+os.environ['TRANSFORMERS_OFFLINE'] = '0'  # Allow downloads but controlled
+os.environ['SENTENCE_TRANSFORMERS_DISABLE_ONNX'] = '1'  # Disable ONNX downloads
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 import requests
@@ -62,24 +68,35 @@ class TherapyRAG:
             chroma_path = os.path.join(os.getcwd(), "chroma_db")
             os.makedirs(chroma_path, exist_ok=True)
         
-        # Initialize embedding model - balanced for cloud with multilingual support
+        # Initialize embedding model - CRITICAL: Disable ONNX/OpenVINO to save memory
         logger.info("Loading embedding model...")
+        
+        # Set environment variable to prevent downloading unnecessary model formats
+        import os
+        os.environ['SENTENCE_TRANSFORMERS_HOME'] = os.path.join(os.getcwd(), 'models_cache')
+        
         try:
-            # Use multilingual MiniLM - good balance of size (420MB) and performance
-            # Supports 50+ languages including Spanish while being cloud-friendly
-            self.embedder = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-            logger.info("Loaded paraphrase-multilingual-MiniLM-L12-v2 (balanced multilingual model)")
+            # Use multilingual-e5-base but ONLY download PyTorch format (1.11GB not 5.5GB)
+            # This model worked in v1.0, so keep using it but optimize the download
+            self.embedder = SentenceTransformer(
+                'intfloat/multilingual-e5-base',
+                device='cpu',  # Explicit CPU for cloud deployment
+                cache_folder=os.path.join(os.getcwd(), 'models_cache')
+            )
+            logger.info("Loaded multilingual-e5-base (PyTorch only, optimized for cloud)")
         except Exception as e:
-            logger.warning(f"Failed to load multilingual MiniLM: {e}")
+            logger.warning(f"Failed to load multilingual model: {e}")
             try:
-                # Fallback to English-only lightweight model
-                self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+                # Fallback to English-only lightweight model  
+                self.embedder = SentenceTransformer(
+                    'all-MiniLM-L6-v2',
+                    device='cpu',
+                    cache_folder=os.path.join(os.getcwd(), 'models_cache')
+                )
                 logger.info("Loaded all-MiniLM-L6-v2 (English-only fallback)")
             except Exception as e2:
-                logger.warning(f"Failed to load MiniLM: {e2}")
-                # Last resort - try full multilingual (may cause memory issues on cloud)
-                self.embedder = SentenceTransformer('intfloat/multilingual-e5-base')
-                logger.warning("Using full multilingual model - may have memory issues on cloud")
+                logger.error(f"Failed to load any embedding model: {e2}")
+                raise RuntimeError("Could not initialize embedding model")
         
         # Initialize ChromaDB
         logger.info(f"Connecting to ChromaDB at {chroma_path}")
