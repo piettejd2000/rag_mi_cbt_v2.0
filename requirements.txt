@@ -7,7 +7,7 @@ sentence-transformers==2.2.2
 
 # Vector database
 chromadb==0.4.15
-onnxruntime==1.16.0
+onnxruntime>=1.24.0
 
 # Visualization
 plotly==5.17.0
