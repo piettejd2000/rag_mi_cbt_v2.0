@@ -62,17 +62,21 @@ class TherapyRAG:
             chroma_path = os.path.join(os.getcwd(), "chroma_db")
             os.makedirs(chroma_path, exist_ok=True)
         
-        # Initialize embedding model (try alternatives if multilingual fails)
+        # Initialize embedding model (start with lighter model for cloud deployment)
         logger.info("Loading embedding model...")
         try:
-            self.embedder = SentenceTransformer('intfloat/multilingual-e5-base')
+            # Try lighter model first for cloud deployment
+            self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+            logger.info("Loaded all-MiniLM-L6-v2 embedding model")
         except Exception as e:
-            logger.warning(f"Failed to load multilingual-e5-base: {e}")
-            logger.info("Trying alternative: all-MiniLM-L6-v2")
+            logger.warning(f"Failed to load all-MiniLM-L6-v2: {e}")
             try:
-                self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-            except:
                 self.embedder = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+                logger.info("Loaded paraphrase-MiniLM-L6-v2 embedding model")
+            except Exception as e2:
+                logger.warning(f"Failed to load paraphrase model: {e2}")
+                # Last resort - try multilingual
+                self.embedder = SentenceTransformer('intfloat/multilingual-e5-base')
         
         # Initialize ChromaDB
         logger.info(f"Connecting to ChromaDB at {chroma_path}")
@@ -341,8 +345,8 @@ Response:"""
                 for meta, dist in zip(context_data['metadatas'], context_data['distances'])
             ],
             'generation_config': {
-                'temperature': temperature,
-                'max_tokens': max_tokens,
+                'temperature': config.temperature,
+                'max_tokens': config.max_tokens,
                 'style': response_style
             }
         }
