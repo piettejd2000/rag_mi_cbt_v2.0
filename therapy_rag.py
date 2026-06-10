@@ -9,12 +9,6 @@ import json
 import logging
 from typing import List, Dict, Optional, Union
 from pathlib import Path
-
-# CRITICAL: Prevent sentence-transformers from downloading ONNX/OpenVINO models
-# This MUST be set before importing sentence_transformers to save 4.4GB of downloads
-os.environ['TRANSFORMERS_OFFLINE'] = '0'  # Allow downloads but controlled
-os.environ['SENTENCE_TRANSFORMERS_DISABLE_ONNX'] = '1'  # Disable ONNX downloads
-
 import chromadb
 from sentence_transformers import SentenceTransformer
 import requests
@@ -68,32 +62,36 @@ class TherapyRAG:
             chroma_path = os.path.join(os.getcwd(), "chroma_db")
             os.makedirs(chroma_path, exist_ok=True)
         
-        # Initialize embedding model - CRITICAL: Disable ONNX/OpenVINO to save memory
+        # Initialize embedding model - Use specific backend to prevent extra downloads
         logger.info("Loading embedding model...")
         
-        # Set environment variable to prevent downloading unnecessary model formats
-        import os
-        os.environ['SENTENCE_TRANSFORMERS_HOME'] = os.path.join(os.getcwd(), 'models_cache')
+        # Set cache to prevent re-downloads
+        cache_folder = os.path.join(os.getcwd(), 'models_cache')
+        os.makedirs(cache_folder, exist_ok=True)
         
         try:
-            # Use multilingual-e5-base but ONLY download PyTorch format (1.11GB not 5.5GB)
-            # This model worked in v1.0, so keep using it but optimize the download
+            # CRITICAL FIX: Use backend='torch' to ONLY use PyTorch, preventing ONNX/OpenVINO downloads
+            # Also set trust_remote_code=False to prevent downloading unnecessary files
             self.embedder = SentenceTransformer(
                 'intfloat/multilingual-e5-base',
                 device='cpu',  # Explicit CPU for cloud deployment
-                cache_folder=os.path.join(os.getcwd(), 'models_cache')
+                cache_folder=cache_folder,
+                backend='torch',  # CRITICAL: Force PyTorch-only backend
+                trust_remote_code=False  # Prevent downloading extra code files
             )
-            logger.info("Loaded multilingual-e5-base (PyTorch only, optimized for cloud)")
+            logger.info("Loaded multilingual-e5-base (PyTorch backend only - 1.11GB)")
         except Exception as e:
             logger.warning(f"Failed to load multilingual model: {e}")
             try:
-                # Fallback to English-only lightweight model  
+                # Fallback to English-only lightweight model with same restrictions
                 self.embedder = SentenceTransformer(
                     'all-MiniLM-L6-v2',
                     device='cpu',
-                    cache_folder=os.path.join(os.getcwd(), 'models_cache')
+                    cache_folder=cache_folder,
+                    backend='torch',  # Force PyTorch-only backend
+                    trust_remote_code=False
                 )
-                logger.info("Loaded all-MiniLM-L6-v2 (English-only fallback)")
+                logger.info("Loaded all-MiniLM-L6-v2 (English-only fallback, PyTorch backend)")
             except Exception as e2:
                 logger.error(f"Failed to load any embedding model: {e2}")
                 raise RuntimeError("Could not initialize embedding model")
