@@ -32,6 +32,10 @@ try:
 except ImportError as e:
     v2_available = False
     logger.warning(f"⚠️ v2.0 components not available: {e}")
+    
+    # Define a fallback function so the code doesn't crash
+    def create_enhanced_rag_v2(**kwargs):
+        raise ImportError(f"v2.0 system not available: {e}")
 
 # v2.0 imports are already configured above
 
