@@ -70,28 +70,24 @@ class TherapyRAG:
         os.makedirs(cache_folder, exist_ok=True)
         
         try:
-            # CRITICAL FIX: Use backend='torch' to ONLY use PyTorch, preventing ONNX/OpenVINO downloads
-            # Also set trust_remote_code=False to prevent downloading unnecessary files
+            # Use same multilingual model that worked in v1.0
+            # Remove problematic parameters that don't exist in cloud version
             self.embedder = SentenceTransformer(
                 'intfloat/multilingual-e5-base',
                 device='cpu',  # Explicit CPU for cloud deployment
-                cache_folder=cache_folder,
-                backend='torch',  # CRITICAL: Force PyTorch-only backend
-                trust_remote_code=False  # Prevent downloading extra code files
+                cache_folder=cache_folder
             )
-            logger.info("Loaded multilingual-e5-base (PyTorch backend only - 1.11GB)")
+            logger.info("Loaded multilingual-e5-base (same as v1.0)")
         except Exception as e:
             logger.warning(f"Failed to load multilingual model: {e}")
             try:
-                # Fallback to English-only lightweight model with same restrictions
+                # Fallback to lightweight model if needed
                 self.embedder = SentenceTransformer(
                     'all-MiniLM-L6-v2',
                     device='cpu',
-                    cache_folder=cache_folder,
-                    backend='torch',  # Force PyTorch-only backend
-                    trust_remote_code=False
+                    cache_folder=cache_folder
                 )
-                logger.info("Loaded all-MiniLM-L6-v2 (English-only fallback, PyTorch backend)")
+                logger.info("Loaded all-MiniLM-L6-v2 (fallback)")
             except Exception as e2:
                 logger.error(f"Failed to load any embedding model: {e2}")
                 raise RuntimeError("Could not initialize embedding model")
