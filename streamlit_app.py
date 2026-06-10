@@ -566,11 +566,11 @@ def main():
         st.header(get_text('sidebar_header'))
         
         st.success("☁️ **Cloud Mode Active**")
-        if os.getenv("ANTHROPIC_API_KEY"):
+        if 'ANTHROPIC_API_KEY' in st.secrets or os.getenv("ANTHROPIC_API_KEY"):
             st.success("✅ API Key Found: sk-ant-api03-fl...")
         else:
             st.error("❌ No API Key Found")
-            st.info("Add ANTHROPIC_API_KEY to environment variables")
+            st.info("Add ANTHROPIC_API_KEY to Streamlit secrets")
 
     # Main content area
     st.subheader(get_text('clinical_query'))
