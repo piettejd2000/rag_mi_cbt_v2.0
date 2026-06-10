@@ -817,7 +817,7 @@ def main():
                                 with st.expander(f"📚 Context Information ({response['context_chunks_used']} {get_text('fragments')})"):
                                     if 'context_sources' in response and response['context_sources']:
                                         for i, source in enumerate(response['context_sources'][:3]):  # Show first 3
-                                            st.write(f"**Source {i+1}:** {source.get('section', 'Unknown')} (Confidence: {source.get('confidence', 0):.2f})")
+                                            st.write(f"**Source {i+1}:** {source.get('source', source.get('section', source.get('content_type', 'Unknown')))} (Confidence: {source.get('confidence', 0):.2%})")
                                     else:
                                         st.write(f"Used {response['context_chunks_used']} context chunks from knowledge base.")
                             
