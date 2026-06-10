@@ -412,18 +412,30 @@ def main():
     st.title(get_text('title'))
     st.markdown(f"*{get_text('subtitle')}* <span class='v2-badge'>v2.0</span>", unsafe_allow_html=True)
     
-    # Auto-initialize Enhanced RAG v2.0 on first load
+    # Auto-initialize Enhanced RAG v2.0 and Base Claude on first load
     if not any(st.session_state.systems_initialized.values()):
-        with st.spinner("🚀 Auto-initializing RAG v2.0 system..."):
+        with st.spinner("🚀 Auto-initializing systems..."):
             try:
                 # Auto-initialize Enhanced RAG v2.0 
                 st.session_state.enhanced_v2_system = SimpleClaudeRAG("enhanced_v2")
-                st.session_state.systems_initialized['enhanced_v2'] = True
-                st.success("✅ RAG v2.0 system ready! You can start asking questions.")
+                st.session_state.systems_initialized['enhanced_v2'] = st.session_state.enhanced_v2_system.available
+                
+                # Auto-initialize Base Claude
+                st.session_state.base_claude_system = SimpleClaudeRAG("base_claude")
+                st.session_state.systems_initialized['base_claude'] = st.session_state.base_claude_system.available
+                
+                if st.session_state.systems_initialized['enhanced_v2']:
+                    st.success("✅ RAG v2.0 system ready!")
+                if st.session_state.systems_initialized['base_claude']:
+                    st.success("✅ Base Claude ready!")
+                    
+                if not any(st.session_state.systems_initialized.values()):
+                    st.error("⚠️ No systems could be initialized. Check API key.")
+                    
                 time.sleep(0.5)  # Brief pause to show success message
             except Exception as e:
                 st.error(f"Auto-initialization failed: {e}")
-                st.info("Please manually initialize a system from the sidebar.")
+                st.info("Please check your API key configuration.")
     
     # Comprehensive Sidebar
     with st.sidebar:
