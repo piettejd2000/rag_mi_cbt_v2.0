@@ -1,5 +1,5 @@
 # Core framework
-streamlit==1.29.0
+streamlit>=1.28.0
 
 # AI/ML dependencies
 anthropic==0.109.0
@@ -13,8 +13,8 @@ chromadb==0.3.2
 plotly==5.17.0
 
 # Data handling
-numpy==1.24.3
-pandas==2.0.3
+numpy>=1.24.0
+pandas>=2.0.0
 
 # Utilities
 python-dotenv==1.0.0
