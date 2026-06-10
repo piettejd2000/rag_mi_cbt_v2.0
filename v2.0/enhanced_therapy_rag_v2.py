@@ -392,10 +392,18 @@ Note: Retrieved materials were not directly relevant to this question."""
         import anthropic
         import os
         
-        # Get API key
+        # Get API key (check multiple sources)
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+            try:
+                import streamlit as st
+                if 'ANTHROPIC_API_KEY' in st.secrets:
+                    api_key = st.secrets['ANTHROPIC_API_KEY']
+            except:
+                pass
+        
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment or secrets")
         
         # Create client
         client = anthropic.Anthropic(api_key=api_key)

@@ -327,11 +327,13 @@ class SimpleClaudeRAG:
                 # Initialize v2.0 system without api_key parameter
                 # The v2.0 system will get api_key from environment or config
                 os.environ['ANTHROPIC_API_KEY'] = self.api_key  # Ensure it's available
+                logger.info(f"Attempting to initialize v2.0 system with API key: {self.api_key[:10]}...")
                 self.rag_system = create_enhanced_rag_v2()
                 self.available = True
                 logger.info("✅ v2.0 RAG system initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize v2.0: {e}")
+                logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
                 self.available = False
         elif self.api_key and system_type == "base_claude":
             self.client = anthropic.Anthropic(api_key=self.api_key)
