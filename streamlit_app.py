@@ -1037,4 +1037,4 @@ def get_knowledge_base_stats(rag_system):
 
 
 if __name__ == "__main__":
-    main()
+    main()# ChromaDB 0.3.2 Fix: Cache refresh Wed Jun 10 11:18:26 CST 2026
