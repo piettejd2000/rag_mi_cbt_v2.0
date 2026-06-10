@@ -62,21 +62,24 @@ class TherapyRAG:
             chroma_path = os.path.join(os.getcwd(), "chroma_db")
             os.makedirs(chroma_path, exist_ok=True)
         
-        # Initialize embedding model (start with lighter model for cloud deployment)
+        # Initialize embedding model - balanced for cloud with multilingual support
         logger.info("Loading embedding model...")
         try:
-            # Try lighter model first for cloud deployment
-            self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-            logger.info("Loaded all-MiniLM-L6-v2 embedding model")
+            # Use multilingual MiniLM - good balance of size (420MB) and performance
+            # Supports 50+ languages including Spanish while being cloud-friendly
+            self.embedder = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            logger.info("Loaded paraphrase-multilingual-MiniLM-L12-v2 (balanced multilingual model)")
         except Exception as e:
-            logger.warning(f"Failed to load all-MiniLM-L6-v2: {e}")
+            logger.warning(f"Failed to load multilingual MiniLM: {e}")
             try:
-                self.embedder = SentenceTransformer('paraphrase-MiniLM-L6-v2')
-                logger.info("Loaded paraphrase-MiniLM-L6-v2 embedding model")
+                # Fallback to English-only lightweight model
+                self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+                logger.info("Loaded all-MiniLM-L6-v2 (English-only fallback)")
             except Exception as e2:
-                logger.warning(f"Failed to load paraphrase model: {e2}")
-                # Last resort - try multilingual
+                logger.warning(f"Failed to load MiniLM: {e2}")
+                # Last resort - try full multilingual (may cause memory issues on cloud)
                 self.embedder = SentenceTransformer('intfloat/multilingual-e5-base')
+                logger.warning("Using full multilingual model - may have memory issues on cloud")
         
         # Initialize ChromaDB
         logger.info(f"Connecting to ChromaDB at {chroma_path}")
