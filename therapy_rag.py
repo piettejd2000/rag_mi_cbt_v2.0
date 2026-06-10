@@ -78,9 +78,13 @@ class TherapyRAG:
         logger.info(f"Connecting to ChromaDB at {chroma_path}")
         try:
             self.client = chromadb.PersistentClient(path=chroma_path)
-            self.collection = self.client.get_collection(name=collection_name)
+            # Create collection if it doesn't exist, or get existing one
+            self.collection = self.client.get_or_create_collection(name=collection_name)
             doc_count = self.collection.count()
-            logger.info(f"Connected to collection '{collection_name}' with {doc_count} documents")
+            if doc_count == 0:
+                logger.warning(f"Collection '{collection_name}' is empty - responses will be knowledge-only")
+            else:
+                logger.info(f"Connected to collection '{collection_name}' with {doc_count} documents")
         except Exception as e:
             logger.error(f"Failed to connect to ChromaDB: {e}")
             raise

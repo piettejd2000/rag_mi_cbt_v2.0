@@ -12,6 +12,7 @@ import logging
 import time
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -533,6 +534,105 @@ def main():
         
         st.divider()
         
+        # Knowledge Base Management
+        st.subheader("📚 Knowledge Base Management")
+        
+        # Show current knowledge base stats
+        if 'enhanced_v2_system' in st.session_state and st.session_state.enhanced_v2_system:
+            try:
+                stats = get_knowledge_base_stats(st.session_state.enhanced_v2_system)
+                st.info(f"📊 Total Documents: {stats.get('total_documents', 0)}")
+                
+                # Show content types if available
+                if stats.get('content_types'):
+                    st.write("**Content Types:**")
+                    for ct, count in stats['content_types'].items():
+                        st.write(f"• {ct}: {count}")
+                
+                # Show source files if available
+                if stats.get('source_files') and len(stats['source_files']) < 10:  # Only show if manageable number
+                    st.write("**Source Files:**")
+                    for source, count in list(stats['source_files'].items())[:5]:  # Limit to 5
+                        st.write(f"• {source}: {count} chunks")
+                        
+            except Exception as e:
+                st.warning(f"Could not load knowledge base stats: {str(e)}")
+        else:
+            st.warning("Enhanced RAG v2.0 system not initialized. Initialize system first.")
+        
+        # Document Upload Section
+        st.write("**Upload New Documents:**")
+        uploaded_files = st.file_uploader(
+            "Choose therapy knowledge files",
+            type=['txt', 'pdf', 'docx', 'md'],
+            accept_multiple_files=True,
+            help="Upload documents to expand the knowledge base. Supported formats: TXT, PDF, DOCX, Markdown"
+        )
+        
+        if uploaded_files:
+            if st.button("🔄 Process and Add Documents", use_container_width=True):
+                if 'enhanced_v2_system' in st.session_state and st.session_state.enhanced_v2_system:
+                    with st.spinner("Processing uploaded documents..."):
+                        success, message = process_uploaded_documents(uploaded_files, st.session_state.enhanced_v2_system)
+                        if success:
+                            st.success(message)
+                            st.rerun()  # Refresh to show updated stats
+                        else:
+                            st.error(message)
+                else:
+                    st.error("Enhanced RAG v2.0 system not initialized. Please initialize first.")
+        
+        # Knowledge Base Management Actions
+        st.write("**Management Actions:**")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🗑️ Clear Knowledge Base", 
+                        use_container_width=True, 
+                        help="Remove all documents from the knowledge base"):
+                if 'enhanced_v2_system' in st.session_state and st.session_state.enhanced_v2_system:
+                    if st.session_state.get('confirm_clear', False):
+                        with st.spinner("Clearing knowledge base..."):
+                            success = clear_knowledge_base(st.session_state.enhanced_v2_system)
+                            if success:
+                                st.success("Knowledge base cleared successfully!")
+                                st.session_state.confirm_clear = False
+                                st.rerun()
+                            else:
+                                st.error("Failed to clear knowledge base")
+                    else:
+                        st.warning("⚠️ This will delete ALL documents. Click again to confirm.")
+                        st.session_state.confirm_clear = True
+                else:
+                    st.error("System not initialized")
+        
+        with col2:
+            if st.button("🔄 Refresh Stats", 
+                        use_container_width=True, 
+                        help="Reload knowledge base statistics"):
+                st.rerun()
+        
+        with col3:
+            if st.button("💾 Export Info", 
+                        use_container_width=True, 
+                        help="Export knowledge base information"):
+                if 'enhanced_v2_system' in st.session_state and st.session_state.enhanced_v2_system:
+                    try:
+                        stats = get_knowledge_base_stats(st.session_state.enhanced_v2_system)
+                        stats_json = json.dumps(stats, indent=2)
+                        st.download_button(
+                            "📥 Download KB Stats",
+                            data=stats_json,
+                            file_name=f"knowledge_base_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            mime="application/json"
+                        )
+                    except Exception as e:
+                        st.error(f"Failed to export stats: {str(e)}")
+                else:
+                    st.error("System not initialized")
+        
+        st.divider()
+        
         # Response Configuration
         st.subheader(get_text('response_params'))
         
@@ -698,6 +798,217 @@ def main():
                             # Show grounding path for v2.0
                             if 'grounding_path' in response and response['grounding_path'] != 'unknown':
                                 st.info(f"🎯 Grounding Path: {response['grounding_path']}")
+
+
+def process_uploaded_documents(uploaded_files, rag_system):
+    """Process uploaded documents and add them to the knowledge base."""
+    if not uploaded_files:
+        return False, "No files uploaded"
+    
+    success_count = 0
+    error_messages = []
+    
+    for uploaded_file in uploaded_files:
+        try:
+            # Extract text from file
+            text_content = extract_text_from_file(uploaded_file)
+            if text_content:
+                # Add to knowledge base
+                success = add_document_to_knowledge_base(
+                    rag_system, 
+                    text_content, 
+                    uploaded_file.name
+                )
+                if success:
+                    success_count += 1
+                else:
+                    error_messages.append(f"Failed to add {uploaded_file.name} to knowledge base")
+            else:
+                error_messages.append(f"Could not extract text from {uploaded_file.name}")
+                
+        except Exception as e:
+            error_messages.append(f"Error processing {uploaded_file.name}: {str(e)}")
+    
+    if success_count > 0:
+        return True, f"Successfully processed {success_count} documents. Errors: {'; '.join(error_messages) if error_messages else 'None'}"
+    else:
+        return False, f"Failed to process any documents. Errors: {'; '.join(error_messages)}"
+
+
+def extract_text_from_file(uploaded_file):
+    """Extract text content from uploaded file."""
+    try:
+        file_type = uploaded_file.type
+        file_content = uploaded_file.read()
+        
+        if file_type == "text/plain" or uploaded_file.name.endswith('.txt'):
+            return file_content.decode('utf-8')
+        elif file_type == "text/markdown" or uploaded_file.name.endswith('.md'):
+            return file_content.decode('utf-8')
+        elif file_type == "application/pdf" or uploaded_file.name.endswith('.pdf'):
+            try:
+                import PyPDF2
+                import io
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+                text = ""
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+                return text
+            except ImportError:
+                st.warning("PyPDF2 not available. PDF files cannot be processed.")
+                return None
+        elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" or uploaded_file.name.endswith('.docx'):
+            try:
+                import python_docx
+                import io
+                doc = python_docx.Document(io.BytesIO(file_content))
+                text = ""
+                for paragraph in doc.paragraphs:
+                    text += paragraph.text + "\n"
+                return text
+            except ImportError:
+                st.warning("python-docx not available. DOCX files cannot be processed.")
+                return None
+        else:
+            st.warning(f"Unsupported file type: {file_type}")
+            return None
+            
+    except Exception as e:
+        st.error(f"Error extracting text: {str(e)}")
+        return None
+
+
+def add_document_to_knowledge_base(rag_system, text_content, filename):
+    """Add a document to the RAG system's knowledge base."""
+    try:
+        # Chunk the document
+        chunks = chunk_document(text_content, filename)
+        
+        if not chunks:
+            return False
+        
+        # Add chunks to ChromaDB
+        documents = []
+        metadatas = []
+        ids = []
+        
+        for i, chunk in enumerate(chunks):
+            documents.append(chunk['text'])
+            metadatas.append({
+                'source_file': filename,
+                'chunk_id': i,
+                'content_type': 'uploaded_document',
+                'section_title': f"{filename} - Chunk {i+1}",
+                'language': 'auto'
+            })
+            ids.append(f"{filename}_chunk_{i}")
+        
+        # Add to collection
+        rag_system.collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids
+        )
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"Error adding document to knowledge base: {str(e)}")
+        return False
+
+
+def chunk_document(text_content, filename, chunk_size=500, chunk_overlap=50):
+    """Split document into chunks for vector storage."""
+    try:
+        # Simple text chunking by sentences
+        sentences = text_content.split('.')
+        chunks = []
+        current_chunk = ""
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            # If adding this sentence would exceed chunk size, start new chunk
+            if len(current_chunk) + len(sentence) > chunk_size and current_chunk:
+                chunks.append({
+                    'text': current_chunk.strip(),
+                    'source': filename
+                })
+                # Start new chunk with overlap
+                words = current_chunk.split()
+                overlap_text = ' '.join(words[-chunk_overlap:]) if len(words) > chunk_overlap else current_chunk
+                current_chunk = overlap_text + ". " + sentence
+            else:
+                current_chunk += ". " + sentence if current_chunk else sentence
+        
+        # Add final chunk
+        if current_chunk.strip():
+            chunks.append({
+                'text': current_chunk.strip(),
+                'source': filename
+            })
+        
+        return chunks
+        
+    except Exception as e:
+        st.error(f"Error chunking document: {str(e)}")
+        return []
+
+
+def clear_knowledge_base(rag_system):
+    """Clear all documents from the knowledge base."""
+    try:
+        # Delete the collection and recreate it
+        collection_name = rag_system.collection.name
+        rag_system.client.delete_collection(name=collection_name)
+        rag_system.collection = rag_system.client.create_collection(name=collection_name)
+        return True
+    except Exception as e:
+        st.error(f"Error clearing knowledge base: {str(e)}")
+        return False
+
+
+def get_knowledge_base_stats(rag_system):
+    """Get statistics about the current knowledge base."""
+    try:
+        total_docs = rag_system.collection.count()
+        
+        if total_docs == 0:
+            return {
+                'total_documents': 0,
+                'content_types': {},
+                'source_files': {}
+            }
+        
+        # Get sample of documents to analyze
+        sample_batch = rag_system.collection.get(limit=min(100, total_docs))
+        
+        content_types = {}
+        source_files = {}
+        
+        for metadata in sample_batch['metadatas']:
+            content_type = metadata.get('content_type', 'unknown')
+            source_file = metadata.get('source_file', 'unknown')
+            
+            content_types[content_type] = content_types.get(content_type, 0) + 1
+            source_files[source_file] = source_files.get(source_file, 0) + 1
+        
+        return {
+            'total_documents': total_docs,
+            'content_types': content_types,
+            'source_files': source_files
+        }
+        
+    except Exception as e:
+        st.error(f"Error getting knowledge base stats: {str(e)}")
+        return {
+            'total_documents': 0,
+            'content_types': {},
+            'source_files': {}
+        }
+
 
 if __name__ == "__main__":
     main()

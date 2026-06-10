@@ -21,3 +21,7 @@ pandas==2.0.3
 python-dotenv==1.0.0
 tenacity==8.2.3
 protobuf==3.20.3
+
+# Document processing (optional)
+PyPDF2==3.0.1
+python-docx==0.8.11
